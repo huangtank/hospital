@@ -1,0 +1,938 @@
+/* ==========================================================================
+   醫院自動排班系統 - 核心樣式表 (Vanilla CSS)
+   設計風格：現代玻璃擬物化 (Glassmorphic) & 醫療專業配色
+   ========================================================================== */
+
+/* 匯入字型 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+/* 全域變數與主題定義 */
+:root {
+  /* 亮色主題變數 */
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --border-color: #e2e8f0;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  --accent-color: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-glow: rgba(37, 99, 235, 0.15);
+  
+  /* 班別色彩系統 */
+  --color-day: #0d9488;      /* 白班 (8) - 青綠色 */
+  --bg-day: #ccfbf1;
+  --color-evening: #d97706;  /* 小夜 (4) - 琥珀橙 */
+  --bg-evening: #fef3c7;
+  --color-night: #7c3aed;    /* 大夜 (12) - 皇家紫 */
+  --bg-night: #ede9fe;
+  --color-off: #e11d48;      /* 放假 (off) - 玫瑰紅 */
+  --bg-off: #ffe4e6;
+  
+  --bg-prefilled: #fef08a;    /* 預輸入 - 亮黃色 */
+  --color-prefilled: #854d0e;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  /* 暗色主題變數 */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --border-color: #334155;
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  
+  --accent-color: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-glow: rgba(59, 130, 246, 0.25);
+  
+  /* 班別色彩系統 (暗色調優化) */
+  --color-day: #2dd4bf;
+  --bg-day: rgba(13, 148, 136, 0.2);
+  --color-evening: #fbbf24;
+  --bg-evening: rgba(217, 119, 6, 0.2);
+  --color-night: #a78bfa;
+  --bg-night: rgba(124, 58, 237, 0.2);
+  --color-off: #fb7185;
+  --bg-off: rgba(225, 29, 72, 0.2);
+  
+  --bg-prefilled: rgba(234, 179, 8, 0.25);
+  --color-prefilled: #fef08a;
+  
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* 基礎設定 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+}
+
+/* 網頁結構與排版 */
+.app-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* 頂部導覽列 */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon {
+  font-size: 2rem;
+  color: var(--accent-color);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.brand-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* 主題切換按鈕 */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+/* 主面板網格 */
+.main-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* RWD 限制：確保右側容器不會被大表格撐開 */
+.main-grid > *:nth-child(2) {
+  min-width: 0;
+  width: 100%;
+}
+
+/* 每日各班別需求人數 RWD 等寬佈局 */
+.demand-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 卡片通用樣式 (Glassmorphism) */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-premium);
+  transition: border-color var(--transition-normal), background-color var(--transition-normal);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* 拖放上傳區 */
+.upload-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  background: rgba(var(--accent-color), 0.02);
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent-color);
+  background: var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.upload-icon {
+  font-size: 3rem;
+  color: var(--accent-color);
+  margin-bottom: 0.5rem;
+  transition: transform var(--transition-normal);
+}
+
+.upload-zone:hover .upload-icon {
+  transform: translateY(-5px);
+}
+
+.upload-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.upload-subtext {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.file-info {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+}
+
+.file-info.active {
+  display: flex;
+}
+
+.file-icon {
+  color: #16a34a;
+  font-size: 1.25rem;
+}
+
+/* 控制設定面板 */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setting-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.setting-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.setting-input-wrapper input,
+.demand-grid input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.setting-input-wrapper input:focus,
+.demand-grid input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.help-tooltip {
+  cursor: help;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* 按鈕樣式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  width: 100%;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-color), #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 4px 10px var(--accent-glow);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent-hover), #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px var(--accent-glow);
+}
+
+.btn-primary:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-outline:hover {
+  background: var(--border-color);
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* 班表表格區域 */
+.table-container-wrapper {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.table-header-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.table-title-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.table-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--accent-glow);
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.color-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.table-scroll-container {
+  overflow: auto;
+  max-height: 60vh;
+}
+
+/* 表格樣式 */
+table.schedule-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* 凍結欄位 */
+table.schedule-table th, table.schedule-table td {
+  padding: 0.4rem 0.2rem;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  min-width: 30px;
+  white-space: nowrap;
+}
+
+table.schedule-table th {
+  background: var(--bg-primary);
+  font-weight: 600;
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* 雙層表頭 z-index 與定位 */
+table.schedule-table tr:first-child th {
+  top: 0;
+  z-index: 12;
+}
+
+table.schedule-table tr:nth-child(2) th {
+  top: 36px;
+  z-index: 11;
+}
+
+/* 凍結左側員工資訊欄 (進階, 職級編號, 姓名, 班別) */
+table.schedule-table th.sticky-col,
+table.schedule-table td.sticky-col {
+  position: sticky;
+  background: var(--bg-secondary);
+  z-index: 5;
+  box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* 修正：加強 Specificity 與 z-index，防止表頭滾動時與日期重疊 */
+table.schedule-table tr:first-child th.sticky-col {
+  z-index: 25;
+  top: 0;
+}
+
+table.schedule-table tr:first-child th.sticky-right-col {
+  z-index: 25;
+  top: 0;
+}
+
+table.schedule-table tr:nth-child(2) th.sticky-col {
+  z-index: 24;
+  top: 36px;
+}
+
+table.schedule-table tr:nth-child(2) th.sticky-right-col {
+  z-index: 24;
+  top: 36px;
+}
+
+/* 凍結欄位的水平位置 */
+/* 凍結欄位的水平位置與寬度精簡 (AWD/RWD 壓縮優化) */
+table.schedule-table .col-level { left: 0; min-width: 45px; width: 45px; }
+table.schedule-table .col-id { left: 45px; min-width: 70px; width: 70px; }
+table.schedule-table .col-name { left: 115px; min-width: 70px; width: 70px; }
+table.schedule-table .col-pref { left: 185px; min-width: 50px; width: 50px; border-right: 2px solid var(--border-color) !important; }
+
+/* 凍結右側統計欄 */
+table.schedule-table th.sticky-right-col,
+table.schedule-table td.sticky-right-col {
+  position: sticky;
+  background: var(--bg-secondary);
+  z-index: 5;
+  box-shadow: -2px 0 5px -2px rgba(0, 0, 0, 0.1);
+}
+
+table.schedule-table th.sticky-right-col {
+  z-index: 15;
+}
+
+table.schedule-table .col-work-days { right: 175px; width: 45px; min-width: 45px; border-left: 2px solid var(--border-color); }
+table.schedule-table .col-night-days { right: 130px; width: 45px; min-width: 45px; }
+table.schedule-table .col-off-days { right: 85px; width: 45px; min-width: 45px; }
+table.schedule-table .col-violations { right: 0; width: 85px; min-width: 85px; }
+
+/* 週末儲存格高亮 */
+table.schedule-table th.weekend,
+table.schedule-table td.weekend {
+  background: rgba(241, 245, 249, 0.4);
+}
+
+[data-theme="dark"] table.schedule-table th.weekend,
+[data-theme="dark"] table.schedule-table td.weekend {
+  background: rgba(30, 41, 59, 0.3);
+}
+
+/* 班表儲存格樣式與狀態變體 */
+.cell-value {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  margin: 0 auto;
+}
+
+/* 班別狀態顏色定義 */
+.cell-day {
+  background-color: var(--bg-day);
+  color: var(--color-day);
+}
+
+.cell-evening {
+  background-color: var(--bg-evening);
+  color: var(--color-evening);
+}
+
+.cell-night {
+  background-color: var(--bg-night);
+  color: var(--color-night);
+}
+
+.cell-off {
+  background-color: var(--bg-off);
+  color: var(--color-off);
+}
+
+.cell-prefilled {
+  background-color: var(--bg-prefilled);
+  color: var(--color-prefilled);
+  cursor: not-allowed;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 預輸入斜線紋路效果 */
+.cell-prefilled::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(0,0,0,0.03) 25%, transparent 25%, transparent 50%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.03) 75%, transparent 75%, transparent);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+
+/* 護理長免排班樣式 */
+.cell-head-nurse {
+  background: repeating-linear-gradient(45deg, var(--border-color), var(--border-color) 4px, transparent 4px, transparent 8px);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  font-size: 0.75rem;
+}
+
+/* 違規儲存格 (紅框 + 動畫) */
+.cell-violation {
+  box-shadow: 0 0 0 2px var(--color-off) inset !important;
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.4) inset; }
+  50% { box-shadow: 0 0 0 3px rgba(225, 29, 72, 1) inset; }
+  100% { box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.4) inset; }
+}
+
+/* 統計欄違規徽章 */
+.violation-badge {
+  background: var(--bg-off);
+  color: var(--color-off);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* 下拉快速選擇器選單 */
+.cell-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  display: none;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem;
+  padding: 0.5rem;
+  z-index: 100;
+  width: 110px;
+}
+
+.dropdown-menu.show {
+  display: grid;
+}
+
+.dropdown-item {
+  padding: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color var(--transition-fast);
+}
+
+.dropdown-item:hover {
+  filter: brightness(0.95);
+}
+
+/* 每日統計區域 */
+.daily-stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stat-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.stat-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* 圖表區域 */
+.chart-container {
+  margin-top: 1rem;
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 20px;
+  border-bottom: 2px solid var(--border-color);
+  position: relative;
+}
+
+.chart-bar-wrapper {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+}
+
+.chart-bar {
+  width: 100%;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  transition: height 0.5s ease-out;
+  min-height: 2px;
+}
+
+.chart-bar-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.chart-tooltip {
+  position: absolute;
+  bottom: 100%;
+  background: var(--text-primary);
+  color: var(--bg-secondary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.chart-bar-wrapper:hover .chart-tooltip {
+  opacity: 1;
+}
+
+/* 空白狀態 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  color: var(--text-muted);
+  text-align: center;
+  gap: 1.5rem;
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  color: var(--border-color);
+}
+
+.empty-state-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+/* 訊息提示 (Toast) */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 999;
+}
+
+.toast {
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transform: translateY(20px);
+  opacity: 0;
+  animation: slide-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.toast-success { border-left: 4px solid #10b981; }
+.toast-error { border-left: 4px solid var(--color-off); }
+.toast-warning { border-left: 4px solid var(--color-evening); }
+
+@keyframes slide-in {
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Modal 彈出視窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: var(--shadow-premium);
+  transform: scale(0.9);
+  transition: transform var(--transition-normal);
+}
+
+.modal-overlay.show .modal-container {
+  transform: scale(1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.modal-body {
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.modal-body ul {
+  padding-left: 1.25rem;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
