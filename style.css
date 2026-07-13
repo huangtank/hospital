@@ -610,10 +610,16 @@ table.schedule-table td.weekend {
 .cell-prefilled {
   background-color: var(--bg-prefilled);
   color: var(--color-prefilled);
-  cursor: not-allowed;
+  cursor: pointer;
   position: relative;
   overflow: hidden;
 }
+
+/* 預填格子內若有特定班別，文字顏色與一般格子保持一致以方便辨識 */
+.cell-prefilled.cell-day { color: var(--color-day); }
+.cell-prefilled.cell-evening { color: var(--color-evening); }
+.cell-prefilled.cell-night { color: var(--color-night); }
+.cell-prefilled.cell-off { color: var(--color-off); }
 
 /* 預輸入斜線紋路效果 */
 .cell-prefilled::after {

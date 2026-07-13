@@ -463,11 +463,12 @@ function renderTable(validationResult) {
       if (emp.isHeadNurse) {
         wrapper.className += " cell-head-nurse";
         wrapper.textContent = val || "";
-      } else if (isPrefilled) {
-        wrapper.className += " cell-prefilled";
-        wrapper.textContent = val || "";
       } else {
-        // 可編輯格子
+        // 普通員工：無論是否為預輸入，均允許點擊微調
+        if (isPrefilled) {
+          wrapper.className += " cell-prefilled";
+        }
+        
         if (val === "8") {
           wrapper.className += " cell-day";
           wrapper.textContent = "8";
@@ -481,7 +482,7 @@ function renderTable(validationResult) {
           wrapper.className += " cell-off";
           wrapper.textContent = "OFF";
         } else {
-          wrapper.textContent = "";
+          wrapper.textContent = val || "";
         }
         
         // 綁定編輯下拉選單
@@ -1292,6 +1293,19 @@ function exportToExcel() {
         sheet[cellRef] = { t: 'n', v: count, s: statCellStyle };
       }
     });
+    
+    // 設定精確欄位寬度 (A欄: 5.44, B欄: 9.56, C欄: 7.11, D欄: 6.56, E欄之後皆為 4.44)
+    const range = XLSX.utils.decode_range(sheet["!ref"] || "A1:AJ100");
+    const maxCols = range.e.c + 1;
+    const colsWidths = [];
+    for (let c = 0; c < maxCols; c++) {
+      if (c === 0) colsWidths.push({ wch: 5.44 });      // A欄 (進階)
+      else if (c === 1) colsWidths.push({ wch: 9.56 }); // B欄 (識別證號)
+      else if (c === 2) colsWidths.push({ wch: 7.11 }); // C欄 (姓名)
+      else if (c === 3) colsWidths.push({ wch: 6.56 }); // D欄 (班別)
+      else colsWidths.push({ wch: 4.44 });              // E欄及之後所有的日期與統計列
+    }
+    sheet["!cols"] = colsWidths;
     
     XLSX.utils.book_append_sheet(wb, sheet, "排班結果");
     
