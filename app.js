@@ -287,6 +287,7 @@ function parseExcelData(rawData) {
     
     // 解析排班歷程 (日期 1 到 totalDays)
     const originalSchedule = [];
+    const isPrefilledFlags = [];
     for (let d = 0; d < totalDays; d++) {
       let val = row[4 + d];
       if (val !== undefined && val !== null) {
@@ -295,11 +296,14 @@ function parseExcelData(rawData) {
         // 規則 1：忽略第一天出現的 "1大"、"3大" 等文字，視為可重新排班 (null)
         if (d === 0 && isIgnoredFirstDayText(val)) {
           originalSchedule.push(null);
+          isPrefilledFlags.push(false);
         } else {
           originalSchedule.push(val); // W, FF, SS, VV, V, AV, VP 等
+          isPrefilledFlags.push(true);
         }
       } else {
         originalSchedule.push(null);
+        isPrefilledFlags.push(false);
       }
     }
     
@@ -311,6 +315,7 @@ function parseExcelData(rawData) {
       preferences,
       isHeadNurse,
       originalSchedule,
+      isPrefilledFlags,
       rowIndex: r // 記錄在原始 Excel 的列索引，方便匯出
     });
   }
@@ -454,7 +459,7 @@ function renderTable(validationResult) {
       if (isWeekend(d)) td.className = "weekend";
       
       const val = currentSchedule[empIdx][d - 1];
-      const isPrefilled = emp.originalSchedule[d - 1] !== null;
+      const isPrefilled = emp.originalSchedule[d - 1] !== null && emp.isPrefilledFlags[d - 1];
       
       const wrapper = document.createElement("div");
       wrapper.className = "cell-value";
@@ -588,7 +593,18 @@ function showCellDropdown(containerTd, empIdx, dayIdx) {
     
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      const emp = employees[empIdx];
       currentSchedule[empIdx][dayIdx] = opt.val;
+      
+      // 只有原本是預排班的格子，手動修改時才同步更新 originalSchedule 以作為最新排班約束
+      if (emp.isPrefilledFlags[dayIdx]) {
+        emp.originalSchedule[dayIdx] = opt.val;
+        // 若點擊清除，則從預排班標記中除名，將其解鎖為普通格子
+        if (opt.val === null) {
+          emp.isPrefilledFlags[dayIdx] = false;
+        }
+      }
+      
       dropdown.remove();
       renderScheduleAndValidate();
       showToast("班表已手動修改", "success", 1000);
@@ -1208,12 +1224,16 @@ function exportToExcel() {
       for (let d = 0; d < totalDays; d++) {
         const colIdx = 4 + d; // 日期從第 5 列 (E) 開始
         const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIdx });
-        let val = empSchedule[d];
-        const isPrefilled = emp.originalSchedule[d] !== null;
+        const originalCell = sheet[cellRef] || {};
+        let exportVal = empSchedule[d];
+        const isPrefilled = emp.originalSchedule[d] !== null && emp.isPrefilledFlags[d];
         
         // 若為自動排班放假，改為寫入 FF
-        if (val === "OFF") {
-          val = "FF";
+        if (exportVal === "OFF") {
+          exportVal = "FF";
+        }
+        if (exportVal === null || exportVal === undefined) {
+          exportVal = "";
         }
         
         // 初始化樣式，使用 Arial 10pt，置中，帶灰色細格線
@@ -1229,19 +1249,39 @@ function exportToExcel() {
         }
         
         // 小夜 (4) 與大夜 (12) 字體設為紅色
-        if (val === "4" || val === "12") {
+        if (exportVal === "4" || exportVal === "12") {
           cellStyle.font.color = { rgb: "FF0000" };
         }
         
-        if (val !== null && val !== undefined) {
-          sheet[cellRef] = { t: 's', v: val, s: cellStyle };
-        } else {
-          // 空白格子也加上置中與細格線，維持 Excel 對齊與美感
-          sheet[cellRef] = { t: 's', v: "", s: {
-            alignment: { horizontal: "center", vertical: "center" },
-            border: thinBorder
-          } };
+        // 註解隱藏與長度寬度優化 (預設隱藏並每 15 字折行以縮小視窗寬度，避免擋到其他格子)
+        if (originalCell.c && Array.isArray(originalCell.c)) {
+          originalCell.c.hidden = true;
+          originalCell.c.forEach(comm => {
+            comm.hidden = true;
+            if (comm.t && typeof comm.t === "string") {
+              const text = comm.t.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+              const lines = text.split("\n");
+              const formattedLines = [];
+              lines.forEach(line => {
+                if (line.length <= 15) {
+                  formattedLines.push(line);
+                } else {
+                  for (let i = 0; i < line.length; i += 15) {
+                    formattedLines.push(line.substring(i, i + 15));
+                  }
+                }
+              });
+              comm.t = formattedLines.join("\n");
+            }
+          });
         }
+        
+        // 使用 Object.assign 保留原儲存格的所有其他屬性（例如 c 代表備註/註解）
+        sheet[cellRef] = Object.assign({}, originalCell, {
+          t: 's',
+          v: exportVal,
+          s: cellStyle
+        });
       }
       
       // 更新右側的統計欄位與樣式
