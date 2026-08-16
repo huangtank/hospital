@@ -1,7 +1,19 @@
+"use strict";
 /**
  * 醫院自動排班系統 - 核心邏輯 (Pure JavaScript)
  * 包含：Excel 解析、模擬退火自動排班演算法、即時違規驗證、互動編輯與 Excel 匯出。
  */
+
+// 將動態字串安全地嵌入 HTML，避免 Excel 儲存格內容 (姓名、班別偏好等) 被當成 HTML/Script 執行
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 // ==========================================================================
 // 全域狀態
@@ -139,12 +151,13 @@ function initActionEvents() {
   btnSchedule.addEventListener("click", () => {
     if (employees.length === 0) return;
     showToast("開始自動排班，正在尋找最佳解...", "info");
-    
+
     // 使用 setTimeout 讓 UI 有時間渲染 Loading
     btnSchedule.disabled = true;
     setTimeout(() => {
-      runAutoScheduling();
-      btnSchedule.disabled = false;
+      runAutoScheduling(() => {
+        btnSchedule.disabled = false;
+      });
     }, 100);
   });
 
@@ -235,6 +248,7 @@ function parseExcelData(rawData) {
   weekdayRowIndex = headerRowIndex + 1;
   const headerRow = rawData[headerRowIndex];
   const weekdayRow = rawData[weekdayRowIndex];
+  headers = headerRow; // 保留完整標頭列，供匯出時依文字尋找「班數」「夜班」等統計欄位
   
   for (let d = 0; d < totalDays; d++) {
     weekdays.push(weekdayRow[4 + d] || "");
@@ -247,8 +261,8 @@ function parseExcelData(rawData) {
   const isIgnoredFirstDayText = (val) => {
     if (!val) return false;
     const str = String(val).trim();
-    // 匹配如: 1大, 3大, 6白, 白1 等
-    return /^[0-9]+[大小白休]|[大小白休]+[0-9]+|[0-9]+$/.test(str);
+    // 匹配如: 1大, 3大, 6白, 白1 等「數字+班別文字」組合，但不可誤吃純數字的合法班別代碼 (8/4/12)
+    return /^[0-9]+[大小白休]$|^[大小白休]+[0-9]+$/.test(str);
   };
   
   statisticsRows = [];
@@ -263,13 +277,14 @@ function parseExcelData(rawData) {
     
     // 必須有姓名與編號才算是有效員工列
     if (!id || !name) {
-      // 檢查是否為底部統計行 (前 4 欄是否包含 "12", "8", "4", "85" 等班別標記)
+      // 檢查是否為底部統計行：前 4 欄必須「只有一欄」有值，且該值為 "12"/"8"/"4"/"85" 等班別標記，
+      // 避免員工資料不完整的列 (例如識別證號欄位剛好等於這些數字) 被誤判為統計列而漏排班。
       const cells = [level, id, name, prefStr];
-      const matchLabel = cells.find(val => ["12", "8", "4", "85"].includes(val));
-      if (matchLabel) {
+      const nonEmptyCells = cells.filter(val => val !== "");
+      if (nonEmptyCells.length === 1 && ["12", "8", "4", "85"].includes(nonEmptyCells[0])) {
         statisticsRows.push({
           rowIndex: r,
-          label: matchLabel
+          label: nonEmptyCells[0]
         });
       }
       continue;
@@ -483,9 +498,10 @@ function renderTable(validationResult) {
         } else if (val === "12") {
           wrapper.className += " cell-night";
           wrapper.textContent = "12";
-        } else if (val === "OFF") {
+        } else if (val && String(val).toUpperCase() === "OFF") {
+          // 大小寫無關比對：實際 Excel 中常見 off/Off/OFF 混用寫法，皆需套用放假樣式並保留原始寫法
           wrapper.className += " cell-off";
-          wrapper.textContent = "OFF";
+          wrapper.textContent = val;
         } else {
           wrapper.textContent = val || "";
         }
@@ -726,12 +742,12 @@ function showEmployeeViolations(empId) {
   const modalBody = document.getElementById("modal-body");
   
   modalBody.innerHTML = `
-    <h4 style="margin-bottom: 0.5rem; color: var(--text-primary);">人員：${emp.name} (${emp.level} - ${emp.id})</h4>
+    <h4 style="margin-bottom: 0.5rem; color: var(--text-primary);">人員：${escapeHtml(emp.name)} (${escapeHtml(emp.level)} - ${escapeHtml(emp.id)})</h4>
     <p style="margin-bottom: 1rem; color: var(--text-secondary);">共有 ${empViolations.length} 處違反規則：</p>
     <ul>
       ${empViolations.map(v => `
         <li style="margin-bottom: 0.5rem; line-height: 1.4;">
-          <strong style="color: var(--color-off);">${v.day} 號：</strong> ${v.reason}
+          <strong style="color: var(--color-off);">${v.day} 號：</strong> ${escapeHtml(v.reason)}
         </li>
       `).join("")}
     </ul>
@@ -751,7 +767,7 @@ function showAllViolations(violations) {
     <ul style="max-height: 300px; overflow-y: auto;">
       ${violations.map(v => `
         <li style="margin-bottom: 0.5rem; line-height: 1.4;">
-          <strong style="color: var(--color-off);">${v.employeeName || "系統"} (天數：${v.day} 號)：</strong> ${v.reason}
+          <strong style="color: var(--color-off);">${escapeHtml(v.employeeName || "系統")} (天數：${v.day} 號)：</strong> ${escapeHtml(v.reason)}
         </li>
       `).join("")}
     </ul>
@@ -956,21 +972,27 @@ function validateSchedule(scheduleMatrix) {
 // ==========================================================================
 // 模擬退火排班演算法 (Simulated Annealing Scheduler)
 // ==========================================================================
-function runAutoScheduling() {
+function runAutoScheduling(onComplete) {
   const maxIterations = 60000;
   let temp = 120.0;
   const alpha = 0.9997;
   const minTemp = 0.005;
+  const CHUNK_SIZE = 2000; // 每個事件循環 tick 只跑一小批疊代，避免長時間鎖死主執行緒讓分頁看起來當機
   
   // 1. 初始化班表矩陣，保證「每天白、小、大夜各 5 人」硬性限制
   let matrix = employees.map(emp => [...emp.originalSchedule]);
-  
-  // 計算每一天已被預先占用的班別名額，並動態分配剩餘名額
+
+  // 依偏好字元判斷某員工是否可排某班別；無偏好 (preferences 為空陣列) 視為不限制
+  function canTakeShift(emp, shiftChar) {
+    return emp.preferences.length === 0 || emp.preferences.includes(shiftChar);
+  }
+
+  // 計算每一天已被預先占用的班別名額，並依偏好優先分配剩餘名額
   for (let d = 1; d <= totalDays; d++) {
     let dayCount = 0;
     let eveningCount = 0;
     let nightCount = 0;
-    
+
     // 計算當天預輸入的上班人數
     employees.forEach((emp, empIdx) => {
       if (emp.isHeadNurse) return;
@@ -979,11 +1001,11 @@ function runAutoScheduling() {
       else if (val === "4") eveningCount++;
       else if (val === "12") nightCount++;
     });
-    
+
     let neededDay = Math.max(0, config.demand.day - dayCount);
     let neededEvening = Math.max(0, config.demand.evening - eveningCount);
     let neededNight = Math.max(0, config.demand.night - nightCount);
-    
+
     // 取得當天可以排班且沒預填的非護理長員工清單
     const candidateIndices = [];
     employees.forEach((emp, empIdx) => {
@@ -991,97 +1013,148 @@ function runAutoScheduling() {
         candidateIndices.push(empIdx);
       }
     });
-    
+
     // 打亂候選名單，增加隨機性
     shuffleArray(candidateIndices);
-    
-    // 指派白班
-    for (let i = 0; i < neededDay && candidateIndices.length > 0; i++) {
-      matrix[candidateIndices.pop()][d - 1] = "8";
+
+    // 依「符合偏好的班別選項數」由少到多排序：只能上單一班別的人優先取得對應名額，
+    // 完全沒有可上班別的人 (例如只填「休」) 排最後，避免一開始就把稀缺名額浪費在不受限制的人身上
+    const eligibility = candidateIndices.map(empIdx => {
+      const emp = employees[empIdx];
+      const eligible = [];
+      if (canTakeShift(emp, "白")) eligible.push("8");
+      if (canTakeShift(emp, "小")) eligible.push("4");
+      if (canTakeShift(emp, "大")) eligible.push("12");
+      return { empIdx, eligible };
+    });
+    eligibility.sort((a, b) => {
+      const rank = (n) => (n === 0 ? 99 : n);
+      return rank(a.eligible.length) - rank(b.eligible.length);
+    });
+
+    const remaining = [];
+    eligibility.forEach(({ empIdx, eligible }) => {
+      const options = eligible.filter(code => {
+        if (code === "8") return neededDay > 0;
+        if (code === "4") return neededEvening > 0;
+        if (code === "12") return neededNight > 0;
+        return false;
+      });
+      if (options.length > 0) {
+        const chosen = options[Math.floor(Math.random() * options.length)];
+        matrix[empIdx][d - 1] = chosen;
+        if (chosen === "8") neededDay--;
+        else if (chosen === "4") neededEvening--;
+        else neededNight--;
+      } else {
+        remaining.push(empIdx);
+      }
+    });
+
+    // 若符合偏好的人數不足以補滿名額，退回用剩餘候選人強制補滿 (無法避免的偏好違規，交由驗證器標示)
+    while (neededDay > 0 && remaining.length > 0) {
+      matrix[remaining.pop()][d - 1] = "8";
+      neededDay--;
     }
-    // 指派小夜
-    for (let i = 0; i < neededEvening && candidateIndices.length > 0; i++) {
-      matrix[candidateIndices.pop()][d - 1] = "4";
+    while (neededEvening > 0 && remaining.length > 0) {
+      matrix[remaining.pop()][d - 1] = "4";
+      neededEvening--;
     }
-    // 指派大夜
-    for (let i = 0; i < neededNight && candidateIndices.length > 0; i++) {
-      matrix[candidateIndices.pop()][d - 1] = "12";
+    while (neededNight > 0 && remaining.length > 0) {
+      matrix[remaining.pop()][d - 1] = "12";
+      neededNight--;
     }
     // 剩下的候選人一律放假 (OFF)
-    while (candidateIndices.length > 0) {
-      matrix[candidateIndices.pop()][d - 1] = "OFF";
+    while (remaining.length > 0) {
+      matrix[remaining.pop()][d - 1] = "OFF";
     }
   }
   
-  // 2. 進行模擬退火尋優
+  // 2. 進行模擬退火尋優 (分批執行，每批之間讓出主執行緒，避免長時間阻塞 UI)
   let currentCost = calculateScheduleCost(matrix);
   let bestMatrix = matrix.map(row => [...row]);
   let bestCost = currentCost;
-  
+
   let iter = 0;
-  while (temp > minTemp && iter < maxIterations && bestCost > 0) {
-    iter++;
-    
-    // 隨機選擇一天，以及這天中兩個「沒有預填」且非護理長的員工
-    const d = Math.floor(Math.random() * totalDays) + 1;
-    
-    const rawCandidates = [];
-    employees.forEach((emp, empIdx) => {
-      if (!emp.isHeadNurse && emp.originalSchedule[d - 1] === null) {
-        rawCandidates.push(empIdx);
+
+  function runChunk() {
+    let stepsInChunk = 0;
+
+    while (stepsInChunk < CHUNK_SIZE && temp > minTemp && iter < maxIterations && bestCost > 0) {
+      iter++;
+      stepsInChunk++;
+
+      // 隨機選擇一天，以及這天中兩個「沒有預填」且非護理長的員工
+      const d = Math.floor(Math.random() * totalDays) + 1;
+
+      const rawCandidates = [];
+      employees.forEach((emp, empIdx) => {
+        if (!emp.isHeadNurse && emp.originalSchedule[d - 1] === null) {
+          rawCandidates.push(empIdx);
+        }
+      });
+
+      if (rawCandidates.length < 2) continue;
+
+      // 隨機選兩個交換
+      const idxA = Math.floor(Math.random() * rawCandidates.length);
+      let idxB = Math.floor(Math.random() * rawCandidates.length);
+      while (idxA === idxB) {
+        idxB = Math.floor(Math.random() * rawCandidates.length);
       }
-    });
-    
-    if (rawCandidates.length < 2) continue;
-    
-    // 隨機選兩個交換
-    const idxA = Math.floor(Math.random() * rawCandidates.length);
-    let idxB = Math.floor(Math.random() * rawCandidates.length);
-    while (idxA === idxB) {
-      idxB = Math.floor(Math.random() * rawCandidates.length);
+
+      const empIdxA = rawCandidates[idxA];
+      const empIdxB = rawCandidates[idxB];
+
+      // 交換他們的排班
+      const valA = matrix[empIdxA][d - 1];
+      const valB = matrix[empIdxB][d - 1];
+
+      if (valA === valB) continue; // 相同班別交換無效，直接跳過
+
+      matrix[empIdxA][d - 1] = valB;
+      matrix[empIdxB][d - 1] = valA;
+
+      // 計算新成本
+      const newCost = calculateScheduleCost(matrix);
+      const delta = newCost - currentCost;
+
+      // 接受條件
+      if (delta < 0 || Math.random() < Math.exp(-delta / temp)) {
+        currentCost = newCost;
+        if (newCost < bestCost) {
+          bestCost = newCost;
+          bestMatrix = matrix.map(row => [...row]);
+        }
+      } else {
+        // 拒絕，還原交換
+        matrix[empIdxA][d - 1] = valA;
+        matrix[empIdxB][d - 1] = valB;
+      }
+
+      temp *= alpha;
     }
-    
-    const empIdxA = rawCandidates[idxA];
-    const empIdxB = rawCandidates[idxB];
-    
-    // 交換他們的排班
-    const valA = matrix[empIdxA][d - 1];
-    const valB = matrix[empIdxB][d - 1];
-    
-    if (valA === valB) continue; // 相同班別交換無效，直接跳過
-    
-    matrix[empIdxA][d - 1] = valB;
-    matrix[empIdxB][d - 1] = valA;
-    
-    // 計算新成本
-    const newCost = calculateScheduleCost(matrix);
-    const delta = newCost - currentCost;
-    
-    // 接受條件
-    if (delta < 0 || Math.random() < Math.exp(-delta / temp)) {
-      currentCost = newCost;
-      if (newCost < bestCost) {
-        bestCost = newCost;
-        bestMatrix = matrix.map(row => [...row]);
-      }
+
+    if (temp > minTemp && iter < maxIterations && bestCost > 0) {
+      // 尚未收斂，讓出主執行緒一個 tick 後繼續下一批，避免畫面長時間凍結
+      setTimeout(runChunk, 0);
+      return;
+    }
+
+    // 3. 儲存結果並更新介面
+    currentSchedule = bestMatrix;
+    renderScheduleAndValidate();
+
+    if (bestCost === 0) {
+      showToast("完美排班成功！符合所有假別與人數規則。", "success");
     } else {
-      // 拒絕，還原交換
-      matrix[empIdxA][d - 1] = valA;
-      matrix[empIdxB][d - 1] = valB;
+      showToast(`排班完成。剩餘衝突數為 ${bestCost} 分。已亮紅標記衝突。`, "warning");
     }
-    
-    temp *= alpha;
+
+    if (onComplete) onComplete();
   }
-  
-  // 3. 儲存結果並更新介面
-  currentSchedule = bestMatrix;
-  renderScheduleAndValidate();
-  
-  if (bestCost === 0) {
-    showToast("完美排班成功！符合所有假別與人數規則。", "success");
-  } else {
-    showToast(`排班完成。剩餘衝突數為 ${bestCost} 分。已亮紅標記衝突。`, "warning");
-  }
+
+  runChunk();
 }
 
 // 輔助洗牌函數
@@ -1196,9 +1269,18 @@ function calculateScheduleCost(scheduleMatrix) {
 // ==========================================================================
 // Excel 匯出與結構保持 (Excel Export Module)
 // ==========================================================================
+// 依標頭列文字尋找欄位索引，找不到則回傳 fallbackCol (寫死的假設位置)
+function findHeaderColumn(labelText, fallbackCol) {
+  if (Array.isArray(headers)) {
+    const idx = headers.findIndex(v => String(v || "").trim() === labelText);
+    if (idx !== -1) return idx;
+  }
+  return fallbackCol;
+}
+
 function exportToExcel() {
   if (!originalExcelData) return;
-  
+
   try {
     const wb = XLSX.utils.book_new();
     
@@ -1293,12 +1375,14 @@ function exportToExcel() {
       };
       
       if (!emp.isHeadNurse) {
-        // 班數 (在日期之後的欄位，索引 = 4 + totalDays)
-        const workCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 4 + totalDays });
+        // 班數／夜班欄位：優先以標頭列文字「班數」「夜班」定位，找不到才退回假設樣板固定接在日期欄位之後 (E欄起 + totalDays)
+        const workCol = findHeaderColumn("班數", 4 + totalDays);
+        const nightCol = findHeaderColumn("夜班", 5 + totalDays);
+
+        const workCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: workCol });
         sheet[workCellRef] = { t: 'n', v: stats.work, s: statStyle };
-        
-        // 夜班 (索引 = 5 + totalDays)
-        const nightCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 5 + totalDays });
+
+        const nightCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: nightCol });
         sheet[nightCellRef] = { t: 'n', v: stats.night, s: statStyle };
       }
     });
